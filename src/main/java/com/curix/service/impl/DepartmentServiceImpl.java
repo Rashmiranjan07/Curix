@@ -28,11 +28,12 @@ public class DepartmentServiceImpl implements DepartmentService {
             throw new ConflictException("Department with name '" + dto.getName() + "' already exists");
         }
 
-        Department department = Department.builder()
-                .name(dto.getName().trim())
-                .description(dto.getDescription())
-                .active(true)
-                .build();
+        // Direct POJO constructor instantiation to eliminate Lombok builder conflicts
+        Department department = new Department(
+                dto.getName().trim(),
+                dto.getDescription(),
+                true
+        );
 
         Department saved = departmentRepository.save(department);
         return mapToDto(saved);
@@ -56,6 +57,11 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     private DepartmentDto mapToDto(Department dept) {
-        return new DepartmentDto(dept.getId(), dept.getName(), dept.getDescription(), dept.isActive());
+        return new DepartmentDto(
+                dept.getId(),
+                dept.getName(),
+                dept.getDescription(),
+                dept.isActive()
+        );
     }
 }
