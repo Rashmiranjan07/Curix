@@ -4,6 +4,7 @@ import com.curix.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
@@ -25,12 +26,12 @@ public class GlobalExceptionHandler {
 		return new ResponseEntity<>(error, HttpStatus.CONFLICT);
 	}
 
-//	@ExceptionHandler(ResourceNotFoundException.class)
-//	public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
-//		ErrorResponse error = new ErrorResponse(LocalDateTime.now(), HttpStatus.NOT_FOUND.value(),
-//				HttpStatus.NOT_FOUND.getReasonPhrase(), ex.getMessage(), request.getRequestURI());
-//		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
-//	}
+	@ExceptionHandler(ResourceNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+		ErrorResponse error = new ErrorResponse(LocalDateTime.now(), HttpStatus.NOT_FOUND.value(),
+				HttpStatus.NOT_FOUND.getReasonPhrase(), ex.getMessage(), request.getRequestURI());
+		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+	}
 
 	@ExceptionHandler({ BadCredentialsException.class, UsernameNotFoundException.class })
 	public ResponseEntity<ErrorResponse> handleBadCredentials(Exception ex, HttpServletRequest request) {
@@ -50,6 +51,18 @@ public class GlobalExceptionHandler {
 		ErrorResponse error = new ErrorResponse(LocalDateTime.now(), HttpStatus.BAD_REQUEST.value(),
 				"Validation Failed", "Input validation failed for one or more fields", request.getRequestURI(), errors);
 		return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+	}
+	
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+	    ErrorResponse error = new ErrorResponse(
+	            LocalDateTime.now(),
+	            HttpStatus.BAD_REQUEST.value(),
+	            "Malformed JSON Request",
+	            "Required request body is missing, malformed, or contains incompatible types",
+	            request.getRequestURI()
+	    );
+	    return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
 	}
 
 	@ExceptionHandler(Exception.class)
