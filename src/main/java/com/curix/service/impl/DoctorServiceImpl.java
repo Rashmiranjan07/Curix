@@ -43,51 +43,52 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @Transactional
     public DoctorResponse provisionDoctor(CreateDoctorRequest request) {
-        if (userRepository.existsByEmail(request.getEmail().toLowerCase().trim())) {
+        String cleanEmail = request.getEmail().toLowerCase().trim();
+        String cleanLicense = request.getLicenseNumber().trim();
+
+        if (userRepository.existsByEmail(cleanEmail)) {
             throw new ConflictException("Email is already registered in the Curix system");
         }
-        if (doctorProfileRepository.existsByLicenseNumber(request.getLicenseNumber().trim())) {
+        if (doctorProfileRepository.existsByLicenseNumber(cleanLicense)) {
             throw new ConflictException("License number is already assigned to an existing doctor");
         }
 
         Department department = departmentRepository.findById(request.getDepartmentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with ID: " + request.getDepartmentId()));
 
-        // 1. Create Base User with Role DOCTOR
-        User user = User.builder()
-                .email(request.getEmail().toLowerCase().trim())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.DOCTOR)
-                .active(true)
-                .verified(true)
-                .build();
+        // 1. Create Base User with DOCTOR role
+        User user = new User();
+        user.setEmail(cleanEmail);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(Role.DOCTOR);
+        user.setActive(true);
+        user.setVerified(true);
         User savedUser = userRepository.save(user);
 
         // 2. Build Doctor Profile
-        DoctorProfile doctor = DoctorProfile.builder()
-                .user(savedUser)
-                .department(department)
-                .licenseNumber(request.getLicenseNumber().trim())
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .specialty(request.getSpecialty())
-                .qualification(request.getQualification())
-                .experienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 0)
-                .consultationFee(request.getConsultationFee())
-                .availabilities(new ArrayList<>())
-                .build();
+        DoctorProfile doctor = new DoctorProfile();
+        doctor.setUser(savedUser);
+        doctor.setDepartment(department);
+        doctor.setLicenseNumber(cleanLicense);
+        doctor.setFirstName(request.getFirstName().trim());
+        doctor.setLastName(request.getLastName().trim());
+        doctor.setSpecialty(request.getSpecialty().trim());
+        doctor.setQualification(request.getQualification().trim());
+        doctor.setExperienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 0);
+        doctor.setConsultationFee(request.getConsultationFee());
+        doctor.setAvailabilities(new ArrayList<>());
 
         // 3. Attach Availabilities
         if (request.getAvailabilities() != null && !request.getAvailabilities().isEmpty()) {
             for (DoctorAvailabilityDto availDto : request.getAvailabilities()) {
-                DoctorAvailability availability = DoctorAvailability.builder()
-                        .doctor(doctor)
-                        .dayOfWeek(availDto.getDayOfWeek())
-                        .startTime(availDto.getStartTime())
-                        .endTime(availDto.getEndTime())
-                        .slotMinutes(availDto.getSlotMinutes() != null ? availDto.getSlotMinutes() : 30)
-                        .active(true)
-                        .build();
+                DoctorAvailability availability = new DoctorAvailability();
+                availability.setDoctor(doctor);
+                availability.setDayOfWeek(availDto.getDayOfWeek());
+                availability.setStartTime(availDto.getStartTime());
+                availability.setEndTime(availDto.getEndTime());
+                availability.setSlotMinutes(availDto.getSlotMinutes() != null ? availDto.getSlotMinutes() : 30);
+                availability.setActive(availDto.getActive() != null ? availDto.getActive() : true);
+
                 doctor.getAvailabilities().add(availability);
             }
         }
@@ -99,7 +100,8 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @Transactional(readOnly = true)
     public List<DoctorResponse> searchDoctors(Long departmentId, String specialty) {
-        return doctorProfileRepository.searchDoctors(departmentId, specialty)
+        String cleanSpecialty = (specialty != null && !specialty.trim().isEmpty()) ? specialty.trim() : null;
+        return doctorProfileRepository.searchDoctors(departmentId, cleanSpecialty)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -139,7 +141,14 @@ public class DoctorServiceImpl implements DoctorService {
 
         if (doctor.getAvailabilities() != null) {
             List<DoctorAvailabilityDto> availDtos = doctor.getAvailabilities().stream()
-                    .map(a -> new DoctorAvailabilityDto(a.getId(), a.getDayOfWeek(), a.getStartTime(), a.getEndTime(), a.getSlotMinutes(), a.isActive()))
+                    .map(a -> new DoctorAvailabilityDto(
+                            a.getId(),
+                            a.getDayOfWeek(),
+                            a.getStartTime(),
+                            a.getEndTime(),
+                            a.getSlotMinutes(),
+                            a.isActive()
+                    ))
                     .collect(Collectors.toList());
             res.setAvailabilities(availDtos);
         }
