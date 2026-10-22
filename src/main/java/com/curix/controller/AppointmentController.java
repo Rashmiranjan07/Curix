@@ -28,6 +28,7 @@ public class AppointmentController {
         this.appointmentService = appointmentService;
     }
 
+    // 1. Available slots calculation
     @GetMapping("/slots")
     public ResponseEntity<ApiResponse<List<AvailableSlotDto>>> getAvailableSlots(
             @RequestParam Long doctorId,
@@ -36,6 +37,7 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.success("Available slots calculated", slots));
     }
 
+    // 2. Book an appointment
     @PostMapping("/book")
     @PreAuthorize("hasRole('PATIENT')")
     public ResponseEntity<ApiResponse<AppointmentResponse>> bookAppointment(
@@ -45,7 +47,8 @@ public class AppointmentController {
         return new ResponseEntity<>(ApiResponse.success("Appointment booked successfully", response), HttpStatus.CREATED);
     }
 
-    @GetMapping("/my-bookings")
+    // 3. Patient appointments list (Supports both /my-appointments and /my-bookings)
+    @GetMapping({"/my-appointments", "/my-bookings"})
     @PreAuthorize("hasRole('PATIENT')")
     public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getMyPatientBookings(
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -53,7 +56,8 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.success("Patient appointments retrieved", list));
     }
 
-    @GetMapping("/doctor/schedule")
+    // 4. Doctor consultation schedule (Supports both /doctor/my-schedule and /doctor/schedule)
+    @GetMapping({"/doctor/my-schedule", "/doctor/schedule"})
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorSchedule(
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -61,25 +65,19 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.success("Doctor appointments retrieved", list));
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AppointmentResponse>> getAppointmentById(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        AppointmentResponse response = appointmentService.getAppointmentById(id, currentUser.getId());
-        return ResponseEntity.ok(ApiResponse.success("Appointment details retrieved", response));
-    }
-
+    // 5. Cancel appointment
     @PutMapping("/{id}/cancel")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<AppointmentResponse>> cancelAppointment(
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal currentUser,
-            @Valid @RequestBody CancelAppointmentRequest request) {
-        AppointmentResponse response = appointmentService.cancelAppointment(id, currentUser.getId(), request);
+            @Valid @RequestBody(required = false) CancelAppointmentRequest request) {
+        CancelAppointmentRequest cancelRequest = (request != null) ? request : new CancelAppointmentRequest();
+        AppointmentResponse response = appointmentService.cancelAppointment(id, currentUser.getId(), cancelRequest);
         return ResponseEntity.ok(ApiResponse.success("Appointment cancelled successfully", response));
     }
 
+    // 6. Complete appointment
     @PutMapping("/{id}/complete")
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<ApiResponse<AppointmentResponse>> completeAppointment(
@@ -87,5 +85,15 @@ public class AppointmentController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         AppointmentResponse response = appointmentService.completeAppointment(id, currentUser.getId());
         return ResponseEntity.ok(ApiResponse.success("Appointment marked as completed", response));
+    }
+
+    // 7. Get single appointment by ID (Placed at the end)
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> getAppointmentById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        AppointmentResponse response = appointmentService.getAppointmentById(id, currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.success("Appointment details retrieved", response));
     }
 }
