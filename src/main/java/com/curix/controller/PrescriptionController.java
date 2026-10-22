@@ -51,7 +51,7 @@ public class PrescriptionController {
         return ResponseEntity.ok(ApiResponse.success("Prescription retrieved for appointment", response));
     }
 
-    @GetMapping("/my-prescriptions")
+    @GetMapping({"/my-prescriptions", "/patient"})
     @PreAuthorize("hasRole('PATIENT')")
     public ResponseEntity<ApiResponse<List<PrescriptionResponse>>> getMyPatientPrescriptions(
             @AuthenticationPrincipal UserPrincipal currentUser) {
