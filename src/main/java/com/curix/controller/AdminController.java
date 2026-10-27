@@ -40,6 +40,15 @@ public class AdminController {
         auditService.logAction(null, "ADMIN", "DOCTOR_PROVISIONED", "DoctorProfile", response.getId(), "Provisioned doctor " + response.getEmail(), null);
         return new ResponseEntity<>(ApiResponse.success("Doctor account provisioned successfully", response), HttpStatus.CREATED);
     }
+    
+    @PutMapping("/doctors/{id}")
+    public ResponseEntity<ApiResponse<DoctorResponse>> updateDoctor(
+            @PathVariable Long id,
+            @RequestBody CreateDoctorRequest request) {
+        DoctorResponse updated = doctorService.updateDoctor(id, request);
+        auditService.logAction(null, "ADMIN", "DOCTOR_UPDATED", "DoctorProfile", id, "Updated doctor profile for " + updated.getEmail(), null);
+        return ResponseEntity.ok(ApiResponse.success("Doctor profile updated successfully", updated));
+    }
 
     @GetMapping("/analytics/dashboard")
     public ResponseEntity<ApiResponse<DashboardMetricsResponse>> getDashboardMetrics() {

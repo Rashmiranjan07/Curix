@@ -14,6 +14,7 @@ import com.curix.repository.DepartmentRepository;
 import com.curix.repository.DoctorProfileRepository;
 import com.curix.repository.UserRepository;
 import com.curix.service.DoctorService;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,6 +96,69 @@ public class DoctorServiceImpl implements DoctorService {
 
         DoctorProfile savedDoctor = doctorProfileRepository.save(doctor);
         return mapToResponse(savedDoctor);
+    }
+
+    @Override
+    @Transactional
+    public DoctorResponse updateDoctor(Long id, CreateDoctorRequest request) {
+        // 1. Find existing DoctorProfile
+        DoctorProfile doctor = doctorProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found with ID: " + id));
+
+        // 2. Check department
+        Department department = departmentRepository.findById(request.getDepartmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found with ID: " + request.getDepartmentId()));
+
+        // 3. Update DoctorProfile demographic and clinical fields
+        doctor.setDepartment(department);
+        doctor.setFirstName(request.getFirstName().trim());
+        doctor.setLastName(request.getLastName().trim());
+        doctor.setLicenseNumber(request.getLicenseNumber().trim());
+        doctor.setSpecialty(request.getSpecialty().trim());
+        doctor.setQualification(request.getQualification().trim());
+        doctor.setExperienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 0);
+        doctor.setConsultationFee(request.getConsultationFee());
+
+        // 4. Update linked User account (Email & optional Password)
+        User user = doctor.getUser();
+        if (user != null) {
+            String cleanEmail = request.getEmail().toLowerCase().trim();
+            if (!user.getEmail().equalsIgnoreCase(cleanEmail)) {
+                if (userRepository.existsByEmail(cleanEmail)) {
+                    throw new ConflictException("Email is already in use by another account");
+                }
+                user.setEmail(cleanEmail);
+            }
+
+            if (request.getPassword() != null && !request.getPassword().isBlank()) {
+                user.setPassword(passwordEncoder.encode(request.getPassword()));
+            }
+            userRepository.save(user);
+        }
+
+        // 5. Update Availabilities if supplied
+        if (request.getAvailabilities() != null) {
+            if (doctor.getAvailabilities() == null) {
+                doctor.setAvailabilities(new ArrayList<>());
+            } else {
+                doctor.getAvailabilities().clear();
+            }
+
+            for (DoctorAvailabilityDto availDto : request.getAvailabilities()) {
+                DoctorAvailability availability = new DoctorAvailability();
+                availability.setDoctor(doctor);
+                availability.setDayOfWeek(availDto.getDayOfWeek());
+                availability.setStartTime(availDto.getStartTime());
+                availability.setEndTime(availDto.getEndTime());
+                availability.setSlotMinutes(availDto.getSlotMinutes() != null ? availDto.getSlotMinutes() : 30);
+                availability.setActive(availDto.getActive() != null ? availDto.getActive() : true);
+
+                doctor.getAvailabilities().add(availability);
+            }
+        }
+
+        DoctorProfile updatedDoctor = doctorProfileRepository.save(doctor);
+        return mapToResponse(updatedDoctor);
     }
 
     @Override
