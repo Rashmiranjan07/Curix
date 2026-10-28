@@ -7,6 +7,7 @@ import com.curix.repository.AppointmentRepository;
 import com.curix.repository.DepartmentRepository;
 import com.curix.repository.DoctorProfileRepository;
 import com.curix.repository.PatientProfileRepository;
+import com.curix.repository.PrescriptionRepository;
 import com.curix.service.AnalyticsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +24,18 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private final DoctorProfileRepository doctorProfileRepository;
     private final DepartmentRepository departmentRepository;
     private final AppointmentRepository appointmentRepository;
+    private final PrescriptionRepository prescriptionRepository;
 
     public AnalyticsServiceImpl(PatientProfileRepository patientProfileRepository,
                                 DoctorProfileRepository doctorProfileRepository,
                                 DepartmentRepository departmentRepository,
-                                AppointmentRepository appointmentRepository) {
+                                AppointmentRepository appointmentRepository,
+                                PrescriptionRepository prescriptionRepository) {
         this.patientProfileRepository = patientProfileRepository;
         this.doctorProfileRepository = doctorProfileRepository;
         this.departmentRepository = departmentRepository;
         this.appointmentRepository = appointmentRepository;
+        this.prescriptionRepository = prescriptionRepository;
     }
 
     @Override
@@ -42,6 +46,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         metrics.setTotalPatients(patientProfileRepository.count());
         metrics.setTotalDoctors(doctorProfileRepository.count());
         metrics.setTotalDepartments(departmentRepository.count());
+        metrics.setTotalPrescriptions(prescriptionRepository.count()); // <-- Injected & queried directly from MySQL
 
         List<Appointment> allAppointments = appointmentRepository.findAll();
         metrics.setTotalAppointments(allAppointments.size());
