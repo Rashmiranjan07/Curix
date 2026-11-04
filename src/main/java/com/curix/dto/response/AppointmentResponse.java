@@ -23,6 +23,8 @@ public class AppointmentResponse {
     private BigDecimal consultationFee;
     private String reasonForVisit;
     private String cancellationReason;
+    private Boolean hasPrescription;
+    private Long prescriptionId;
     private LocalDateTime createdAt;
 
     public AppointmentResponse() {}
@@ -68,6 +70,12 @@ public class AppointmentResponse {
 
     public String getCancellationReason() { return cancellationReason; }
     public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
+
+    public Boolean getHasPrescription() { return hasPrescription; }
+    public void setHasPrescription(Boolean hasPrescription) { this.hasPrescription = hasPrescription; }
+
+    public Long getPrescriptionId() { return prescriptionId; }
+    public void setPrescriptionId(Long prescriptionId) { this.prescriptionId = prescriptionId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime setCreatedAt(LocalDateTime createdAt) { return this.createdAt = createdAt; }

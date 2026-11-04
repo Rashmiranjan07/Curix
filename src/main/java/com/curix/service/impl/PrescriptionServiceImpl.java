@@ -132,6 +132,15 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<PrescriptionResponse> getAllPrescriptions() {
+        return prescriptionRepository.findAll().stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<PrescriptionResponse> getMyPrescriptionsAsDoctor(Long doctorUserId) {
         User user = userRepository.findById(doctorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + doctorUserId));

@@ -23,4 +23,6 @@ public interface AppointmentService {
     List<AppointmentResponse> getAppointmentsForDoctor(Long doctorUserId);
 
     AppointmentResponse getAppointmentById(Long appointmentId, Long requestingUserId);
+
+    List<AppointmentResponse> getAllAppointments();
 }

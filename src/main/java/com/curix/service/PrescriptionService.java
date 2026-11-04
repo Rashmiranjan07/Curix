@@ -16,4 +16,6 @@ public interface PrescriptionService {
     List<PrescriptionResponse> getMyPrescriptionsAsPatient(Long patientUserId);
 
     List<PrescriptionResponse> getMyPrescriptionsAsDoctor(Long doctorUserId);
+
+    List<PrescriptionResponse> getAllPrescriptions();
 }
