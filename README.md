@@ -416,29 +416,6 @@ CURIX aims to deliver a modern healthcare experience through:
 
 ---
 
-## 👨‍💻 Developer
-
-<p align="center">
-  <strong>Rashmiranjan Shaw</strong>
-  <br/>
-  B.Tech Computer Science & Engineering
-  <br/>
-  Full-Stack Java Developer
-</p>
-
-<p align="center">
-  <a href="https://github.com/Rashmiranjan07">
-    <img src="https://img.shields.io/badge/GitHub-Rashmiranjan07-181717?style=for-the-badge&logo=github" />
-  </a>
-  <a href="https://www.linkedin.com/">
-    <img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin" />
-  </a>
-  <a href="https://leetcode.com/u/Rashmiranjan07/">
-    <img src="https://img.shields.io/badge/LeetCode-Profile-FFA116?style=for-the-badge&logo=leetcode&logoColor=black" />
-  </a>
-</p>
-
----
 
 ## 📄 License
 
