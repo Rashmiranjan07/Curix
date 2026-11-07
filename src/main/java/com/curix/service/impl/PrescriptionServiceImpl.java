@@ -120,21 +120,56 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             response.setCreatedAt(LocalDateTime.now());
         }
 
-        // 8. Resolve patient registered email (identical pattern to cancelAppointment)
+        // 8. Multi-tier patient email resolution (bulletproof fallback chain)
         try {
-            String patientEmail = (appointment.getPatient() != null && appointment.getPatient().getUser() != null)
-                    ? appointment.getPatient().getUser().getEmail() : null;
+            String patientEmail = null;
 
-            // Direct repository lookup fallback if proxy was uninitialized
-            if (patientEmail == null && appointment.getPatient() != null) {
-                Long patientProfileId = appointment.getPatient().getId();
-                PatientProfile pProfile = patientProfileRepository.findById(patientProfileId).orElse(null);
-                if (pProfile != null && pProfile.getUser() != null) {
-                    User u = userRepository.findById(pProfile.getUser().getId()).orElse(null);
-                    if (u != null && u.getEmail() != null) {
-                        patientEmail = u.getEmail().trim();
-                    }
+            // Tier 1: Check request payload (sent transparently from frontend)
+            if (request.getPatientEmail() != null && !request.getPatientEmail().trim().isEmpty()) {
+                patientEmail = request.getPatientEmail().trim();
+            }
+
+            // Tier 2: Direct SQL join via Appointment ID (bypasses all lazy loading proxies)
+            if (patientEmail == null || patientEmail.isEmpty()) {
+                try {
+                    patientEmail = appointmentRepository.findPatientEmailByAppointmentId(appointment.getId()).orElse(null);
+                } catch (Exception ex) {
+                    log.warn("[Curix Prescription] Direct SQL email lookup warning: {}", ex.getMessage());
                 }
+            }
+
+            // Tier 3: Direct SQL join via Patient Profile ID
+            if ((patientEmail == null || patientEmail.isEmpty()) && appointment.getPatient() != null) {
+                try {
+                    patientEmail = patientProfileRepository.findUserEmailByPatientId(appointment.getPatient().getId()).orElse(null);
+                } catch (Exception ex) {
+                    log.warn("[Curix Prescription] Patient profile email query warning: {}", ex.getMessage());
+                }
+            }
+
+            // Tier 4: Direct repository fetch by user ID
+            if ((patientEmail == null || patientEmail.isEmpty()) && appointment.getPatient() != null) {
+                try {
+                    Long patientProfileId = appointment.getPatient().getId();
+                    PatientProfile pProfile = patientProfileRepository.findById(patientProfileId).orElse(null);
+                    if (pProfile != null && pProfile.getUser() != null) {
+                        User u = userRepository.findById(pProfile.getUser().getId()).orElse(null);
+                        if (u != null && u.getEmail() != null) {
+                            patientEmail = u.getEmail().trim();
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[Curix Prescription] Direct repository fetch warning: {}", ex.getMessage());
+                }
+            }
+
+            // Tier 5: Entity proxy traversal
+            if (patientEmail == null || patientEmail.isEmpty()) {
+                try {
+                    if (appointment.getPatient() != null && appointment.getPatient().getUser() != null) {
+                        patientEmail = appointment.getPatient().getUser().getEmail();
+                    }
+                } catch (Exception ignored) {}
             }
 
             if (patientEmail != null && !patientEmail.trim().isEmpty()) {

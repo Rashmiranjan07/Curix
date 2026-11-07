@@ -299,6 +299,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         } catch (Exception ex) {
             // Lazy load safety fallback
         }
+        if (res.getPatientEmail() == null && appt.getId() != null) {
+            try {
+                appointmentRepository.findPatientEmailByAppointmentId(appt.getId())
+                        .ifPresent(res::setPatientEmail);
+            } catch (Exception ignored) {}
+        }
         res.setDoctorId(appt.getDoctor().getId());
         res.setDoctorName("Dr. " + appt.getDoctor().getFirstName() + " " + appt.getDoctor().getLastName());
         res.setDepartmentName(appt.getDoctor().getDepartment() != null ? appt.getDoctor().getDepartment().getName() : "General");

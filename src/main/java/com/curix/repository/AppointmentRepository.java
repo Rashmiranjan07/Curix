@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
@@ -31,4 +32,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findActiveBookingsForDoctorOnDate(
             @Param("doctorId") Long doctorId,
             @Param("date") LocalDate date);
+
+    @Query("SELECT u.email FROM Appointment a JOIN a.patient p JOIN p.user u WHERE a.id = :appointmentId")
+    Optional<String> findPatientEmailByAppointmentId(@Param("appointmentId") Long appointmentId);
 }
