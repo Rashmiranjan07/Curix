@@ -1,6 +1,7 @@
 package com.curix.service;
 
 import com.curix.dto.response.AppointmentResponse;
+import com.curix.dto.response.PrescriptionResponse;
 
 public interface EmailService {
 
@@ -21,4 +22,13 @@ public interface EmailService {
      * @param reason the reason for cancellation
      */
     void sendAppointmentCancellationEmail(AppointmentResponse appointment, String patientEmail, String reason);
+
+    /**
+     * Asynchronously sends an official digital prescription email to the patient
+     * with the list of prescribed medications, dosages, frequency, duration, doctor notes, and clinical diagnosis.
+     *
+     * @param prescription the generated prescription response DTO
+     * @param patientEmail the recipient patient's registered email address
+     */
+    void sendPrescriptionEmail(PrescriptionResponse prescription, String patientEmail);
 }

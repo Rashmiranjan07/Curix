@@ -25,7 +25,7 @@ public class PrescriptionController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('DOCTOR')")
+    @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
     public ResponseEntity<ApiResponse<PrescriptionResponse>> createPrescription(
             @AuthenticationPrincipal UserPrincipal currentUser,
             @Valid @RequestBody CreatePrescriptionRequest request) {
@@ -60,7 +60,7 @@ public class PrescriptionController {
     }
 
     @GetMapping("/doctor-history")
-    @PreAuthorize("hasRole('DOCTOR')")
+    @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<PrescriptionResponse>>> getMyDoctorPrescriptions(
             @AuthenticationPrincipal UserPrincipal currentUser) {
         List<PrescriptionResponse> list = prescriptionService.getMyPrescriptionsAsDoctor(currentUser.getId());

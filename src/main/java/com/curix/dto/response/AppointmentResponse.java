@@ -13,6 +13,7 @@ public class AppointmentResponse {
     private Long patientId;
     private String patientName;
     private String patientNumber;
+    private String patientEmail;
     private Long doctorId;
     private String doctorName;
     private String departmentName;
@@ -40,6 +41,9 @@ public class AppointmentResponse {
 
     public String getPatientNumber() { return patientNumber; }
     public void setPatientNumber(String patientNumber) { this.patientNumber = patientNumber; }
+
+    public String getPatientEmail() { return patientEmail; }
+    public void setPatientEmail(String patientEmail) { this.patientEmail = patientEmail; }
 
     public Long getDoctorId() { return doctorId; }
     public void setDoctorId(Long doctorId) { this.doctorId = doctorId; }

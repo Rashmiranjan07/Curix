@@ -17,33 +17,42 @@ import com.curix.repository.DoctorProfileRepository;
 import com.curix.repository.PatientProfileRepository;
 import com.curix.repository.PrescriptionRepository;
 import com.curix.repository.UserRepository;
+import com.curix.service.EmailService;
 import com.curix.service.PrescriptionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class PrescriptionServiceImpl implements PrescriptionService {
 
+    private static final Logger log = LoggerFactory.getLogger(PrescriptionServiceImpl.class);
+
     private final PrescriptionRepository prescriptionRepository;
     private final AppointmentRepository appointmentRepository;
     private final PatientProfileRepository patientProfileRepository;
     private final DoctorProfileRepository doctorProfileRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     public PrescriptionServiceImpl(PrescriptionRepository prescriptionRepository,
                                    AppointmentRepository appointmentRepository,
                                    PatientProfileRepository patientProfileRepository,
                                    DoctorProfileRepository doctorProfileRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   EmailService emailService) {
         this.prescriptionRepository = prescriptionRepository;
         this.appointmentRepository = appointmentRepository;
         this.patientProfileRepository = patientProfileRepository;
         this.doctorProfileRepository = doctorProfileRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -53,9 +62,20 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with ID: " + request.getAppointmentId()));
 
-        // 2. Ownership Guard: Ensure the logged-in doctor is the doctor on this appointment
-        if (!appointment.getDoctor().getUser().getId().equals(doctorUserId)) {
-            throw new AccessDeniedException("Access Denied: Only the assigned consulting doctor can issue this prescription");
+        // 2. Ownership Guard: Ensure the logged-in doctor is the doctor on this appointment (or an admin)
+        User requestingUser = userRepository.findById(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + doctorUserId));
+
+        boolean isAssignedDoctor = appointment.getDoctor() != null
+                && appointment.getDoctor().getUser() != null
+                && appointment.getDoctor().getUser().getId().equals(doctorUserId);
+        boolean isAdmin = (requestingUser.getRole() == Role.ADMIN);
+
+        if (!isAssignedDoctor && !isAdmin) {
+            String assignedDoctorName = (appointment.getDoctor() != null)
+                    ? "Dr. " + appointment.getDoctor().getFirstName() + " " + appointment.getDoctor().getLastName()
+                    : "the assigned physician";
+            throw new AccessDeniedException("Access Denied: Only the assigned consulting doctor (" + assignedDoctorName + ") or an administrator can issue this prescription.");
         }
 
         // 3. Status Guard: Cannot write prescriptions for cancelled visits
@@ -94,8 +114,61 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             appointmentRepository.save(appointment);
         }
 
-        Prescription saved = prescriptionRepository.save(prescription);
-        return mapToResponse(saved);
+        Prescription saved = prescriptionRepository.saveAndFlush(prescription);
+        PrescriptionResponse response = mapToResponse(saved);
+        if (response.getCreatedAt() == null) {
+            response.setCreatedAt(LocalDateTime.now());
+        }
+
+        // 8. Multi-layer patient email resolution
+        String patientEmail = null;
+
+        // Fallback A: Direct from request payload
+        if (request.getPatientEmail() != null && !request.getPatientEmail().trim().isEmpty()) {
+            patientEmail = request.getPatientEmail().trim();
+        }
+
+        // Fallback B: Direct repository lookup by patient profile ID
+        if (patientEmail == null && appointment.getPatient() != null) {
+            try {
+                Long patientProfileId = appointment.getPatient().getId();
+                PatientProfile pProfile = patientProfileRepository.findById(patientProfileId).orElse(null);
+                if (pProfile != null && pProfile.getUser() != null) {
+                    Long userId = pProfile.getUser().getId();
+                    User u = userRepository.findById(userId).orElse(null);
+                    if (u != null && u.getEmail() != null && !u.getEmail().trim().isEmpty()) {
+                        patientEmail = u.getEmail().trim();
+                    }
+                }
+            } catch (Exception fetchEx) {
+                log.warn("[Curix Prescription] Direct repository user fetch warning: {}", fetchEx.getMessage());
+            }
+        }
+
+        // Fallback C: Entity traversal
+        if (patientEmail == null) {
+            try {
+                if (appointment.getPatient() != null && appointment.getPatient().getUser() != null) {
+                    patientEmail = appointment.getPatient().getUser().getEmail();
+                }
+            } catch (Exception travEx) {
+                log.warn("[Curix Prescription] Entity proxy traversal warning: {}", travEx.getMessage());
+            }
+        }
+
+        // 9. Dispatch "Prescription is Ready" email
+        if (patientEmail != null && !patientEmail.trim().isEmpty()) {
+            try {
+                log.info("[Curix Prescription] Dispatching 'Your Prescription is Ready' email to {} for Rx #{}", patientEmail.trim(), saved.getId());
+                emailService.sendPrescriptionEmail(response, patientEmail.trim());
+            } catch (Exception emailEx) {
+                log.error("[Curix Prescription] Error delivering prescription email to {}: {}", patientEmail, emailEx.getMessage(), emailEx);
+            }
+        } else {
+            log.warn("[Curix Prescription] WARNING: Could not determine patient email for appointment #{}. Prescription saved, email skipped.", appointment.getId());
+        }
+
+        return response;
     }
 
     @Override
@@ -122,7 +195,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Transactional(readOnly = true)
     public List<PrescriptionResponse> getMyPrescriptionsAsPatient(Long patientUserId) {
         PatientProfile patient = patientProfileRepository.findByUserId(patientUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for User ID: " + patientUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user: " + patientUserId));
 
         return prescriptionRepository.findByPatientIdOrderByCreatedAtDesc(patient.getId())
                 .stream()
@@ -145,8 +218,12 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         User user = userRepository.findById(doctorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + doctorUserId));
 
-        if (user.getRole() != Role.DOCTOR) {
-            throw new AccessDeniedException("Access Denied: Only doctors can access this resource");
+        if (user.getRole() != Role.DOCTOR && user.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Access Denied: Only clinical personnel can access this resource");
+        }
+
+        if (user.getRole() == Role.ADMIN) {
+            return getAllPrescriptions();
         }
 
         return prescriptionRepository.findAll().stream()

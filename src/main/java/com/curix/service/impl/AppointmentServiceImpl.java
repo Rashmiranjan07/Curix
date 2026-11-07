@@ -292,6 +292,13 @@ public class AppointmentServiceImpl implements AppointmentService {
         res.setPatientId(appt.getPatient().getId());
         res.setPatientName(appt.getPatient().getFirstName() + " " + appt.getPatient().getLastName());
         res.setPatientNumber(appt.getPatient().getPatientNumber());
+        try {
+            if (appt.getPatient() != null && appt.getPatient().getUser() != null) {
+                res.setPatientEmail(appt.getPatient().getUser().getEmail());
+            }
+        } catch (Exception ex) {
+            // Lazy load safety fallback
+        }
         res.setDoctorId(appt.getDoctor().getId());
         res.setDoctorName("Dr. " + appt.getDoctor().getFirstName() + " " + appt.getDoctor().getLastName());
         res.setDepartmentName(appt.getDoctor().getDepartment() != null ? appt.getDoctor().getDepartment().getName() : "General");
