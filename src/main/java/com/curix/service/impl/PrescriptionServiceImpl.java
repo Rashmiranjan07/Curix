@@ -120,52 +120,31 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             response.setCreatedAt(LocalDateTime.now());
         }
 
-        // 8. Multi-layer patient email resolution
-        String patientEmail = null;
+        // 8. Resolve patient registered email (identical pattern to cancelAppointment)
+        try {
+            String patientEmail = (appointment.getPatient() != null && appointment.getPatient().getUser() != null)
+                    ? appointment.getPatient().getUser().getEmail() : null;
 
-        // Fallback A: Direct from request payload
-        if (request.getPatientEmail() != null && !request.getPatientEmail().trim().isEmpty()) {
-            patientEmail = request.getPatientEmail().trim();
-        }
-
-        // Fallback B: Direct repository lookup by patient profile ID
-        if (patientEmail == null && appointment.getPatient() != null) {
-            try {
+            // Direct repository lookup fallback if proxy was uninitialized
+            if (patientEmail == null && appointment.getPatient() != null) {
                 Long patientProfileId = appointment.getPatient().getId();
                 PatientProfile pProfile = patientProfileRepository.findById(patientProfileId).orElse(null);
                 if (pProfile != null && pProfile.getUser() != null) {
-                    Long userId = pProfile.getUser().getId();
-                    User u = userRepository.findById(userId).orElse(null);
-                    if (u != null && u.getEmail() != null && !u.getEmail().trim().isEmpty()) {
+                    User u = userRepository.findById(pProfile.getUser().getId()).orElse(null);
+                    if (u != null && u.getEmail() != null) {
                         patientEmail = u.getEmail().trim();
                     }
                 }
-            } catch (Exception fetchEx) {
-                log.warn("[Curix Prescription] Direct repository user fetch warning: {}", fetchEx.getMessage());
             }
-        }
 
-        // Fallback C: Entity traversal
-        if (patientEmail == null) {
-            try {
-                if (appointment.getPatient() != null && appointment.getPatient().getUser() != null) {
-                    patientEmail = appointment.getPatient().getUser().getEmail();
-                }
-            } catch (Exception travEx) {
-                log.warn("[Curix Prescription] Entity proxy traversal warning: {}", travEx.getMessage());
-            }
-        }
-
-        // 9. Dispatch "Prescription is Ready" email
-        if (patientEmail != null && !patientEmail.trim().isEmpty()) {
-            try {
-                log.info("[Curix Prescription] Dispatching 'Your Prescription is Ready' email to {} for Rx #{}", patientEmail.trim(), saved.getId());
+            if (patientEmail != null && !patientEmail.trim().isEmpty()) {
+                log.info("[Curix Prescription] Dispatching 'Your Prescription is Ready' email to patient registered email: {} for Rx #{}", patientEmail.trim(), saved.getId());
                 emailService.sendPrescriptionEmail(response, patientEmail.trim());
-            } catch (Exception emailEx) {
-                log.error("[Curix Prescription] Error delivering prescription email to {}: {}", patientEmail, emailEx.getMessage(), emailEx);
+            } else {
+                log.warn("[Curix Prescription] WARNING: Could not determine patient email for appointment #{}. Prescription saved, email skipped.", appointment.getId());
             }
-        } else {
-            log.warn("[Curix Prescription] WARNING: Could not determine patient email for appointment #{}. Prescription saved, email skipped.", appointment.getId());
+        } catch (Exception emailEx) {
+            log.error("[Curix Prescription] Error delivering prescription email: {}", emailEx.getMessage(), emailEx);
         }
 
         return response;
