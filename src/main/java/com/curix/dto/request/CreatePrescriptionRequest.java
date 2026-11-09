@@ -21,8 +21,6 @@ public class CreatePrescriptionRequest {
     @Size(max = 2000, message = "Notes cannot exceed 2000 characters")
     private String notes;
 
-    private String patientEmail;
-
     @NotEmpty(message = "Prescription must contain at least one medication item")
     @Valid
     private List<PrescriptionItemDto> items;
@@ -37,9 +35,6 @@ public class CreatePrescriptionRequest {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
-
-    public String getPatientEmail() { return patientEmail; }
-    public void setPatientEmail(String patientEmail) { this.patientEmail = patientEmail; }
 
     public List<PrescriptionItemDto> getItems() { return items; }
     public void setItems(List<PrescriptionItemDto> items) { this.items = items; }

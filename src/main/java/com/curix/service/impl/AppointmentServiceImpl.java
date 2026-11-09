@@ -22,7 +22,6 @@ import com.curix.repository.UserRepository;
 import com.curix.repository.PrescriptionRepository;
 import com.curix.entity.Prescription;
 import com.curix.service.AppointmentService;
-import com.curix.service.EmailService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -43,22 +42,19 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final PatientProfileRepository patientProfileRepository;
     private final UserRepository userRepository;
     private final PrescriptionRepository prescriptionRepository;
-    private final EmailService emailService;
 
     public AppointmentServiceImpl(AppointmentRepository appointmentRepository,
                                   DoctorProfileRepository doctorProfileRepository,
                                   DoctorAvailabilityRepository doctorAvailabilityRepository,
                                   PatientProfileRepository patientProfileRepository,
                                   UserRepository userRepository,
-                                  PrescriptionRepository prescriptionRepository,
-                                  EmailService emailService) {
+                                  PrescriptionRepository prescriptionRepository) {
         this.appointmentRepository = appointmentRepository;
         this.doctorProfileRepository = doctorProfileRepository;
         this.doctorAvailabilityRepository = doctorAvailabilityRepository;
         this.patientProfileRepository = patientProfileRepository;
         this.userRepository = userRepository;
         this.prescriptionRepository = prescriptionRepository;
-        this.emailService = emailService;
     }
 
     @Override
@@ -153,16 +149,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         try {
             Appointment saved = appointmentRepository.saveAndFlush(appointment);
-            AppointmentResponse response = mapToResponse(saved);
-
-            try {
-                String patientEmail = (patient.getUser() != null) ? patient.getUser().getEmail() : null;
-                emailService.sendAppointmentConfirmationEmail(response, patientEmail);
-            } catch (Exception emailEx) {
-                // Non-blocking asynchronous notification; ensures appointment reservation is never interrupted
-            }
-
-            return response;
+            return mapToResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new ConflictException("Concurrency Conflict: This slot was just booked by another patient. Please choose another time.");
         }
@@ -197,17 +184,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setCancellationReason(request.getReason());
 
         Appointment updated = appointmentRepository.save(appointment);
-        AppointmentResponse response = mapToResponse(updated);
-
-        try {
-            String patientEmail = (appointment.getPatient() != null && appointment.getPatient().getUser() != null)
-                    ? appointment.getPatient().getUser().getEmail() : null;
-            emailService.sendAppointmentCancellationEmail(response, patientEmail, request.getReason());
-        } catch (Exception emailEx) {
-            // Non-blocking cancellation email notice
-        }
-
-        return response;
+        return mapToResponse(updated);
     }
 
     @Override
